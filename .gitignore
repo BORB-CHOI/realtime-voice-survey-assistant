@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+
+# FastAPI/uvicorn
+*.log
+
+# Node/Next.js
+web/node_modules/
+web/.next/
+web/.turbo/
+web/.vercel/
+web/.env.local
+web/.env*
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.vscode/
