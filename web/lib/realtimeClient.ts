@@ -35,6 +35,8 @@ function estimateParalinguistic(text: string, lastTurnMs: number): Paralinguisti
 export function createRealtimeClient(opts: {
   apiKey: string;
   model?: string;
+  /** Optional Realtime session/turn config. If omitted, SDK defaults are used. */
+  sessionConfig?: Record<string, any>;
   onTranscript: (
     text: string,
     confidence: number,
@@ -45,7 +47,10 @@ export function createRealtimeClient(opts: {
   onSpeaking: () => void;
   onListening: () => void;
 }) {
-  const model = opts.model || process.env.NEXT_PUBLIC_REALTIME_MODEL || "gpt-4o-realtime-preview";
+  const model =
+    opts.model ||
+    process.env.NEXT_PUBLIC_REALTIME_MODEL ||
+    "gpt-4o-realtime-preview";
   let client: RealtimeClientInstance | null = null;
   let connected = false;
   let lastPartialAt = Date.now();
@@ -57,7 +62,12 @@ export function createRealtimeClient(opts: {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const mod = await import("@openai/realtime-api-beta");
       const { RealtimeClient } = mod as any;
-      client = new RealtimeClient({ apiKey: opts.apiKey, model });
+      // sessionConfig is optional; if not provided, SDK defaults apply.
+      const baseConfig: Record<string, any> = { apiKey: opts.apiKey, model };
+      if (opts.sessionConfig) {
+        baseConfig.session = opts.sessionConfig;
+      }
+      client = new RealtimeClient(baseConfig);
       return client;
     } catch (err) {
       console.error("Failed to load Realtime SDK", err);
