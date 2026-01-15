@@ -1,5 +1,9 @@
 # Elderly Mobility Voice Survey
 
+빠른 실행 명령어 (PowerShell)
+- 백엔드: `python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install -r requirements.txt; uvicorn server.app:app --reload`
+- 프런트: `cd web; npm install; copy .env.example .env.local; npm run dev`
+
 노인 이동 불편을 음성 대화로 정량화하는 프로토타입입니다. 브라우저는 OpenAI Realtime API(WebRTC)로 음성을 처리하고, Python FastAPI WebSocket 서버가 설문 상태와 종료 로직을 제어합니다.
 
 ## 프로젝트 개요 (원문 유지)
