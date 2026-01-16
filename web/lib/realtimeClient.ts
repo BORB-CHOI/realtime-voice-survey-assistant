@@ -1,6 +1,7 @@
 // OpenAI Realtime Agents SDK (TypeScript, WebRTC) bridge for browser.
 // This module sets up microphone → Realtime model (speech-to-speech), and
 // forwards transcript events to the WS control channel.
+import { RealtimeAgent, RealtimeSession } from "@openai/agents/realtime";
 
 export type ParalinguisticReading = {
   silence_ms_before: number;
@@ -10,17 +11,11 @@ export type ParalinguisticReading = {
   fatigue_score?: number | null;
 };
 
-type RealtimeClientInstance = {
-  connect: () => Promise<void>;
-  disconnect: () => Promise<void>;
-  startMicrophone: () => Promise<void>;
-  stopMicrophone: () => Promise<void>;
-  sendText: (text: string) => void;
-  on: (event: string, handler: (data: any) => void) => void;
-};
-
 // Lightweight paralinguistic estimator (client-side placeholder)
-function estimateParalinguistic(text: string, lastTurnMs: number): ParalinguisticReading {
+function estimateParalinguistic(
+  text: string,
+  lastTurnMs: number
+): ParalinguisticReading {
   const hesitationTokens = ["음", "어", "글쎄", "저기"];
   const filler = hesitationTokens.filter((t) => text.includes(t));
   return {
@@ -51,59 +46,57 @@ export function createRealtimeClient(opts: {
     opts.model ||
     process.env.NEXT_PUBLIC_REALTIME_MODEL ||
     "gpt-4o-realtime-preview";
-  let client: RealtimeClientInstance | null = null;
+  const agent = new RealtimeAgent({
+    name: "assistant",
+    instructions: "You are a helpful assistant.",
+  });
+
+  const session = new RealtimeSession(agent, {
+    transport: "webrtc",
+    model,
+    config: opts.sessionConfig,
+  });
+
   let connected = false;
+  let partialBuffer = "";
   let lastPartialAt = Date.now();
 
-  const loadClient = async () => {
-    if (client) return client;
-    try {
-      // Agents SDK for TypeScript (browser, WebRTC). Ensure dependency installed.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = await import("@openai/realtime-api-beta");
-      const { RealtimeClient } = mod as any;
-      // sessionConfig is optional; if not provided, SDK defaults apply.
-      const baseConfig: Record<string, any> = { apiKey: opts.apiKey, model };
-      if (opts.sessionConfig) {
-        baseConfig.session = opts.sessionConfig;
-      }
-      client = new RealtimeClient(baseConfig);
-      return client;
-    } catch (err) {
-      console.error("Failed to load Realtime SDK", err);
-      throw err;
-    }
-  };
-
   const connect = async () => {
-    const c = await loadClient();
     if (connected) return;
-    // Wire transcript events
-    c.on("transcript.partial", (ev: any) => {
-      lastPartialAt = Date.now();
-      const reading = estimateParalinguistic(ev.text || "", 800);
-      opts.onTranscript(ev.text || "", ev.confidence ?? 0.7, false, reading);
+
+    // Transcript events via transport_event (covers partial deltas and final transcripts)
+    session.on("transport_event", (ev: any) => {
+      if (!ev || !ev.type) return;
+      if (ev.type === "audio_transcript_delta") {
+        partialBuffer += ev.delta || "";
+        lastPartialAt = Date.now();
+        const reading = estimateParalinguistic(partialBuffer, 800);
+        opts.onTranscript(partialBuffer, 0.7, false, reading);
+      }
+      if (ev.type === "conversation.item.input_audio_transcription.completed") {
+        const text = ev.transcript || partialBuffer || "";
+        const gap = Date.now() - lastPartialAt;
+        const reading = estimateParalinguistic(text, gap);
+        opts.onTranscript(text, 0.85, true, reading);
+        partialBuffer = "";
+        opts.onListening();
+      }
     });
-    c.on("transcript.final", (ev: any) => {
-      const now = Date.now();
-      const gap = now - lastPartialAt;
-      const reading = estimateParalinguistic(ev.text || "", gap);
-      opts.onTranscript(ev.text || "", ev.confidence ?? 0.8, true, reading);
-      opts.onListening();
-    });
-    // Audio start/stop hooks
-    c.on("input_audio_buffer.speech_started", () => opts.onSpeaking());
-    c.on("input_audio_buffer.speech_stopped", () => opts.onListening());
-    await c.connect();
-    await c.startMicrophone();
+
+    // Speaking/listening UI hooks
+    session.on("audio_start", () => opts.onSpeaking());
+    session.on("audio_stopped", () => opts.onListening());
+
+    await session.connect({ apiKey: opts.apiKey, model });
     connected = true;
   };
 
   const speak = (text: string) => {
-    // Use model TTS via Realtime conversation item
-    if (!client || !connected) return;
+    if (!connected) return;
     try {
-      (client as any).send({
+      // Send a pre-authored assistant message so TTS is played without LLM generation.
+      const transport: any = (session as any).transport;
+      transport.sendEvent({
         type: "conversation.item.create",
         item: {
           type: "message",
@@ -111,28 +104,36 @@ export function createRealtimeClient(opts: {
           content: [{ type: "output_text", text }],
         },
       });
-      (client as any).send({ type: "response.create" });
+      transport.sendEvent({ type: "response.create" });
     } catch (err) {
       console.error("speak failed", err);
     }
   };
 
   const stopMic = async () => {
-    if (client) {
-      await client.stopMicrophone?.();
+    try {
+      session.mute(true);
+    } catch {
+      /* noop */
     }
   };
 
   const dispose = async () => {
-    if (client) {
-      await client.stopMicrophone?.();
-      await client.disconnect?.();
+    try {
+      session.close();
+    } finally {
       connected = false;
     }
   };
 
-  // Expose a manual user barge-in trigger if needed
-  const triggerBargeIn = () => opts.onUserBargeIn();
+  const triggerBargeIn = () => {
+    try {
+      session.interrupt();
+    } catch (err) {
+      console.error("interrupt failed", err);
+    }
+    opts.onUserBargeIn();
+  };
 
   return { connect, speak, stopMic, dispose, triggerBargeIn };
 }
