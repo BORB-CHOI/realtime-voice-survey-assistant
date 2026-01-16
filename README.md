@@ -151,5 +151,53 @@
 - state_machine.py: 질문 세트(Q1–Q16), 단계 추적, 회피/피로 카운터, 침묵 시 clarify, 종료 사유(`keyword|fatigue|avoidance|complete`) 설정.
 - summarizer.py: 명시적 답변 맵, 반복 키워드·필러·침묵/머뭇 주제 추출, 신뢰도(trust_score) 계산, 메타(총 소요 시간, 종료 사유) 포함한 JSON 생성.
 
+## Python WS Server Design (server/app.md 원문)
+
+역할: 세션 UUID 발급, 설문 상태 머신 실행, ASR/비언어 신호 처리, 질문 생성, 종료 판단, 최종 요약 생성.
+
+### 흐름
+1) 클라이언트 `hello` → 서버 `session_created {sessionId}`
+2) asr_partial/final + paralinguistic 수신 → 상태 머신 업데이트 → 필요 시 `ask` 또는 `clarify`
+3) 종료 조건 충족 시 `end` → 이어서 `summary` 전송
+
+### 세션 상태 보관
+- `sessionId` → {state, fatigue_counter, avoidance_counter, timeline, last_question, accum_log}
+- 메모리 dict (프로토타입), 만료 TTL
+
+### 주요 핸들러
+- on_hello(): UUID 생성/저장
+- on_asr_partial(): 맥락 누적, 아직 질문 전이는 보류
+- on_asr_final(): 의도/키워드/회피/모순 감지 → 상태 전이 → `ask` or `clarify`
+- on_user_bargein(): 질문 재구성/단순화 후 재전송
+
+### 안전장치
+- malformed payload → `error` 응답, 세션 유지
+- 세션 미존재 → `error` + close
+
+### 의존 모듈
+- `state_machine.py`: 상태 전이/질문 선택
+- `summarizer.py`: 최종 JSON 생성
+
+## Summarizer Design (server/summarizer.md 원문)
+
+입력: 대화 로그(발화, 화자, 타임스탬프, paralinguistic), 상태 전이 기록, 종료 사유. 출력: 구조화 JSON
+
+```
+{
+  "명시적_답변": { "질문_id": "응답" },
+  "암묵적_패턴": { "반복_키워드": [], "감정_태그": [], "회피_주제": [], "침묵_주제": [] },
+  "시간_변화": { "과거": {}, "현재": {}, "전환점": [] },
+  "사회적_맥락": { "주요_의존_대상": [], "지원_네트워크": {} },
+  "설문_메타": { "총_소요_시간": "", "중단_사유": "", "응답_신뢰도_추정": "" }
+}
+```
+
+### 로직 스케치
+- 명시적: 질문 ID별 최종 요약 문자열 저장
+- 암묵적: 키워드 빈도, 긴 침묵이 동반된 주제, 회피 플래그 수집
+- 시간 변화: 과거/현재 비교 문장 패턴 추출, 전환점 키워드(사건, 인물)
+- 사회적 맥락: 의존 대상(가족/이웃/의료), 지원 빈도·역할
+- 메타: duration, 종료 사유, 신뢰도(회피/모순/확신 정도 기반)
+
 ## System Prompt
 - 에이전트 시스템 프롬프트 원본은 docs/elderly-mobility-system.md에 유지합니다. README에는 포함하지 않습니다.
