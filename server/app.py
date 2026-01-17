@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
+from dotenv import load_dotenv
 
 from state_machine import SessionState, SurveyStateMachine
 from summarizer import Summarizer
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT_DIR / ".env")
 
 app = FastAPI(title="Elderly Mobility Realtime Survey")
 
