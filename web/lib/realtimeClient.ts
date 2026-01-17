@@ -1,7 +1,7 @@
 // OpenAI Realtime Agents SDK (TypeScript, WebRTC) bridge for browser.
-// This module sets up microphone → Realtime model (speech-to-speech), and
-// forwards transcript events to the WS control channel.
+// This module sets up microphone → Realtime model (speech-to-speech).
 import { RealtimeAgent, RealtimeSession } from "@openai/agents/realtime";
+import { SYSTEM_PROMPT } from "./systemPrompt";
 
 export type ParalinguisticReading = {
   silence_ms_before: number;
@@ -28,7 +28,7 @@ function estimateParalinguistic(
 }
 
 export function createRealtimeClient(opts: {
-  apiKey: string;
+  apiKey: string; // Ephemeral token (required for WebRTC in browser).
   model?: string;
   /** Optional Realtime session/turn config. If omitted, SDK defaults are used. */
   sessionConfig?: Record<string, any>;
@@ -38,6 +38,7 @@ export function createRealtimeClient(opts: {
     isFinal: boolean,
     reading: ParalinguisticReading
   ) => void;
+  onAssistantText?: (text: string, isFinal: boolean) => void;
   onUserBargeIn: () => void;
   onSpeaking: () => void;
   onListening: () => void;
@@ -45,10 +46,10 @@ export function createRealtimeClient(opts: {
   const model =
     opts.model ||
     process.env.NEXT_PUBLIC_REALTIME_MODEL ||
-    "gpt-4o-realtime-preview";
+    "gpt-realtime";
   const agent = new RealtimeAgent({
     name: "assistant",
-    instructions: "You are a helpful assistant.",
+    instructions: SYSTEM_PROMPT,
   });
 
   const session = new RealtimeSession(agent, {
@@ -60,9 +61,32 @@ export function createRealtimeClient(opts: {
   let connected = false;
   let partialBuffer = "";
   let lastPartialAt = Date.now();
+  let assistantBuffer = "";
+  let responseRequestedAt = 0;
 
   const connect = async () => {
     if (connected) return;
+
+    const apiKey = opts.apiKey;
+
+    const transport: any = (session as any).transport;
+    const requestResponse = (instructions?: string) => {
+      const now = Date.now();
+      if (now - responseRequestedAt < 500) return;
+      responseRequestedAt = now;
+      try {
+        transport.sendEvent({
+          type: "response.create",
+          response: {
+            output_modalities: ["audio"],
+            audio: { voice: "marin" },
+            ...(instructions ? { instructions } : {}),
+          },
+        });
+      } catch (err) {
+        console.error("response.create failed", err);
+      }
+    };
 
     // Transcript events via transport_event (covers partial deltas and final transcripts)
     session.on("transport_event", (ev: any) => {
@@ -73,6 +97,15 @@ export function createRealtimeClient(opts: {
         const reading = estimateParalinguistic(partialBuffer, 800);
         opts.onTranscript(partialBuffer, 0.7, false, reading);
       }
+      if (ev.type === "input_audio_buffer.speech_final") {
+        const text = ev.transcript || partialBuffer || "";
+        const gap = Date.now() - lastPartialAt;
+        const reading = estimateParalinguistic(text, gap);
+        opts.onTranscript(text, 0.85, true, reading);
+        partialBuffer = "";
+        opts.onListening();
+        requestResponse();
+      }
       if (ev.type === "conversation.item.input_audio_transcription.completed") {
         const text = ev.transcript || partialBuffer || "";
         const gap = Date.now() - lastPartialAt;
@@ -81,13 +114,22 @@ export function createRealtimeClient(opts: {
         partialBuffer = "";
         opts.onListening();
       }
+      if (ev.type === "response.output_text.delta") {
+        assistantBuffer += ev.delta || "";
+        opts.onAssistantText?.(assistantBuffer, false);
+      }
+      if (ev.type === "response.output_text.done") {
+        const finalText = ev.text || assistantBuffer || "";
+        opts.onAssistantText?.(finalText, true);
+        assistantBuffer = "";
+      }
     });
 
     // Speaking/listening UI hooks
     session.on("audio_start", () => opts.onSpeaking());
     session.on("audio_stopped", () => opts.onListening());
 
-    await session.connect({ apiKey: opts.apiKey, model });
+    await session.connect({ apiKey, model });
     connected = true;
   };
 
@@ -104,7 +146,13 @@ export function createRealtimeClient(opts: {
           content: [{ type: "output_text", text }],
         },
       });
-      transport.sendEvent({ type: "response.create" });
+      transport.sendEvent({
+        type: "response.create",
+        response: {
+          modalities: ["audio", "text"],
+          audio: { voice: "alloy" },
+        },
+      });
     } catch (err) {
       console.error("speak failed", err);
     }
@@ -115,6 +163,14 @@ export function createRealtimeClient(opts: {
       session.mute(true);
     } catch {
       /* noop */
+    }
+  };
+
+  const startMic = async () => {
+    try {
+      session.mute(false);
+    } catch (err) {
+      console.error("unmute failed", err);
     }
   };
 
@@ -135,5 +191,13 @@ export function createRealtimeClient(opts: {
     opts.onUserBargeIn();
   };
 
-  return { connect, speak, stopMic, dispose, triggerBargeIn };
+  return {
+    connect,
+    speak,
+    requestResponse,
+    stopMic,
+    startMic,
+    dispose,
+    triggerBargeIn,
+  };
 }
