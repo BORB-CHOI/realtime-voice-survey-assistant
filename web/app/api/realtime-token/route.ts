@@ -1,5 +1,23 @@
 import { NextResponse } from "next/server";
-import { SYSTEM_PROMPT } from "../../../lib/systemPrompt";
+import fs from "fs";
+import path from "path";
+
+const resolveSystemPromptPath = () => {
+  const cwd = process.cwd();
+  const candidates = [
+    path.resolve(cwd, "docs", "elderly-mobility-system.md"),
+    path.resolve(cwd, "..", "docs", "elderly-mobility-system.md"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return candidates[0];
+};
+
+const readSystemPrompt = () => {
+  const docPath = resolveSystemPromptPath();
+  return fs.readFileSync(docPath, "utf8");
+};
 
 export async function GET() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -18,7 +36,7 @@ export async function GET() {
     session: {
       type: "realtime",
       model,
-      instructions: SYSTEM_PROMPT,
+      instructions: readSystemPrompt(),
       output_modalities: ["audio"],
       audio: { output: { voice: "marin" } },
     },
@@ -39,6 +57,11 @@ export async function GET() {
   const data = await response.json();
   if (!response.ok) {
     return NextResponse.json(data, { status: response.status });
+  }
+
+  // Normalize possible response shapes.
+  if (!data?.value && data?.client_secret?.value) {
+    data.value = data.client_secret.value;
   }
 
   if (!data?.value) {

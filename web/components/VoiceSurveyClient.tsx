@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createRealtimeClient } from "../lib/realtimeClient";
 
 export default function VoiceSurveyClient() {
+  const [ready, setReady] = useState(false);
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "listening" | "processing" | "speaking"
@@ -15,8 +16,6 @@ export default function VoiceSurveyClient() {
   const [hearing, setHearing] = useState(false);
   const [lastHeard, setLastHeard] = useState("");
   const [volume, setVolume] = useState(0); // 0.0 ~ 1.0 RMS
-  const [assistantTyping, setAssistantTyping] = useState("");
-  const [userTyping, setUserTyping] = useState("");
   const hearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const meterStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -25,86 +24,42 @@ export default function VoiceSurveyClient() {
   const realtimeErrorLogged = useRef(false);
   const lastVolumeUpdateRef = useRef(0);
   const tokenRef = useRef<string | null>(null);
+  const tokenFetchedAtRef = useRef<number>(0);
+  const connectInFlightRef = useRef(false);
+  const connectRetryRef = useRef(false);
 
   const rtRef = useRef<ReturnType<typeof createRealtimeClient> | null>(null);
 
-  const appendLog = (line: string) =>
-    setLog((prev) => [...prev.slice(-100), line]);
+  const appendLog = (line: string) => setLog((prev) => [...prev, line]);
 
   useEffect(() => {
     let cancelled = false;
     const initRealtime = async () => {
-      // 세션 시작 전에 에페메럴 토큰을 미리 받아둔다.
-      try {
-        const res = await fetch("/api/realtime-token");
-        if (res.ok) {
-          const data = await res.json();
-          tokenRef.current = data?.value || data?.client_secret?.value || null;
-        } else {
-          const detail = await res.text();
-          appendLog(`token fetch failed: ${res.status} ${detail}`);
-          tokenRef.current = null;
-        }
-      } catch (err) {
-        appendLog(
-          `token fetch error: ${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
-        tokenRef.current = null;
-      }
-
-      if (cancelled) return;
-      if (!tokenRef.current) {
-        appendLog("token missing: /api/realtime-token 응답을 확인하세요.");
-        return;
-      }
-
       const rt = createRealtimeClient({
-        apiKey: tokenRef.current,
-        onTranscript: (text, confidence, isFinal, reading) => {
-          if (isFinal) setStatus("processing");
-
+        apiKey: undefined,
+        autoGreetText:
+          "[중개사 왈] 지침에 따라 자기소개를 한 번만 하고 바로 첫 설문을 시작하세요.",
+        onTranscript: (text, confidence, isFinal, reading, meta) => {
+          if (!isFinal) return;
+          setStatus("processing");
           setLastHeard(text);
-          setUserTyping(isFinal ? "" : text);
           setHearing(true);
           if (hearTimerRef.current) clearTimeout(hearTimerRef.current);
-          hearTimerRef.current = setTimeout(
-            () => setHearing(false),
-            isFinal ? 1600 : 900
-          );
-
-          if (isFinal) {
-            appendLog(`me: ${text}`);
-          }
+          hearTimerRef.current = setTimeout(() => setHearing(false), 1600);
+          appendLog(`me: ${text}`);
         },
-        onAssistantText: (text, isFinal) => {
-          if (!text) return;
+        onAssistantText: (text, isFinal, meta) => {
+          if (!isFinal || !text) return;
           setStatus("speaking");
-          setAssistantTyping(text);
-          if (isFinal) {
-            setAssistantTyping("");
-            appendLog(`ai: ${text}`);
-            setStatus("listening");
-          }
+          appendLog(`ai: ${text}`);
+          setStatus("listening");
         },
         onUserBargeIn: () => {},
         onSpeaking: () => setStatus("speaking"),
         onListening: () => setStatus("listening"),
       });
       rtRef.current = rt;
-
-      rt.connect()
-        .then(() => {
-          appendLog("realtime connected");
-          setConnected(true);
-        })
-        .catch((err) => {
-          if (!realtimeErrorLogged.current) {
-            appendLog(`realtime connect error: ${err?.message || err}`);
-            realtimeErrorLogged.current = true;
-          }
-        });
+      setReady(true);
     };
 
     initRealtime();
@@ -116,6 +71,35 @@ export default function VoiceSurveyClient() {
       rtRef.current?.dispose();
     };
   }, []);
+
+  const fetchFreshToken = async () => {
+    try {
+      const res = await fetch("/api/realtime-token", { cache: "no-store" });
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(`token fetch failed: ${res.status} ${detail}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const detail = await res.text();
+        throw new Error(`token fetch invalid response: ${detail}`);
+      }
+      const data = await res.json();
+      const token = data?.value || data?.client_secret?.value || null;
+      if (!token || typeof token !== "string" || token.length < 20) {
+        throw new Error("token missing/invalid in response");
+      }
+      tokenRef.current = token;
+      tokenFetchedAtRef.current = Date.now();
+      return token;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      appendLog(`token fetch error: ${msg}`);
+      tokenRef.current = null;
+      tokenFetchedAtRef.current = 0;
+      return null;
+    }
+  };
 
   const stopMeter = () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -183,6 +167,59 @@ export default function VoiceSurveyClient() {
   };
 
   const onStart = async () => {
+    if (!rtRef.current) {
+      appendLog("realtime 준비 중입니다. 잠시 후 다시 시도하세요.");
+      return;
+    }
+
+    if (connectInFlightRef.current) return;
+    connectInFlightRef.current = true;
+
+    // Ephemeral token expires quickly; always refresh right before connect.
+    const token = await fetchFreshToken();
+    if (!token) {
+      connectInFlightRef.current = false;
+      return;
+    }
+
+    if (!connected) {
+      try {
+        await (rtRef.current as any).connectWithToken(token);
+        appendLog("realtime connected");
+        setConnected(true);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const isSdpParse =
+          msg.includes("setRemoteDescription") ||
+          msg.includes("SessionDescription");
+        if (isSdpParse && !connectRetryRef.current) {
+          connectRetryRef.current = true;
+          const retryToken = await fetchFreshToken();
+          if (retryToken) {
+            try {
+              await (rtRef.current as any).connectWithToken(retryToken);
+              appendLog("realtime connected");
+              setConnected(true);
+              connectInFlightRef.current = false;
+              return;
+            } catch (retryErr) {
+              const retryMsg =
+                retryErr instanceof Error ? retryErr.message : String(retryErr);
+              appendLog(`realtime connect error: ${retryMsg}`);
+            }
+          }
+        }
+        if (!realtimeErrorLogged.current) {
+          appendLog(`realtime connect error: ${msg}`);
+          realtimeErrorLogged.current = true;
+        }
+        connectInFlightRef.current = false;
+        return;
+      }
+    }
+
+    connectInFlightRef.current = false;
+
     try {
       if (micPermission !== "granted") {
         await requestMic();
@@ -197,9 +234,6 @@ export default function VoiceSurveyClient() {
     } else {
       appendLog("realtime startMic 준비 중 (새로고침 후 다시 시도)");
     }
-    rtRef.current?.requestResponse(
-      "지금부터 설문을 시작해 첫 질문을 해주세요."
-    );
     setStatus("listening");
   };
 
@@ -214,7 +248,7 @@ export default function VoiceSurveyClient() {
     <main style={{ maxWidth: 960, margin: "0 auto", padding: 24 }}>
       <h1>실시간 음성 설문 (Prototype)</h1>
       <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <button onClick={onStart} disabled={!connected}>
+        <button onClick={onStart} disabled={!ready}>
           세션 시작
         </button>
         <button onClick={onStop}>마이크 종료</button>
@@ -303,10 +337,6 @@ export default function VoiceSurveyClient() {
             {log.map((l, i) => (
               <div key={i}>{l}</div>
             ))}
-            {userTyping && <div style={{ opacity: 0.7 }}>me: {userTyping}</div>}
-            {assistantTyping && (
-              <div style={{ opacity: 0.8 }}>ai: {assistantTyping}</div>
-            )}
           </div>
         </div>
         <div
