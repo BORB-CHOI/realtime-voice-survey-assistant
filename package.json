@@ -1,15 +1,12 @@
 {
-  "name": "real-silver-web",
+  "name": "realtime-voice-survey-assistant",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "predev": "node scripts/generate-system-prompt.mjs",
     "build": "next build",
-    "prebuild": "node scripts/generate-system-prompt.mjs",
     "start": "next start",
-    "lint": "next lint",
-    "postinstall": "node scripts/generate-system-prompt.mjs"
+    "lint": "next lint"
   },
   "dependencies": {
     "@openai/agents": "^0.3.8",

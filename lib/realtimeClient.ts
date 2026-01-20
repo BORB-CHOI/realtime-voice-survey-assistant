@@ -1,7 +1,6 @@
 // OpenAI Realtime Agents SDK (TypeScript, WebRTC) bridge for browser.
 // This module sets up microphone → Realtime model (speech-to-speech).
 import { RealtimeAgent, RealtimeSession } from "@openai/agents/realtime";
-import { SYSTEM_PROMPT } from "./systemPrompt";
 
 export type ParalinguisticReading = {
   silence_ms_before: number;
@@ -30,6 +29,7 @@ function estimateParalinguistic(
 export function createRealtimeClient(opts: {
   apiKey?: string; // Ephemeral token (required for WebRTC in browser). Can be provided at connect-time.
   model?: string;
+  instructions?: string;
   /** Optional Realtime session/turn config. If omitted, SDK defaults are used. */
   sessionConfig?: Record<string, any>;
   /** Optional assistant greeting played immediately after connect. */
@@ -51,10 +51,12 @@ export function createRealtimeClient(opts: {
   onListening: () => void;
 }) {
   const model =
-    opts.model || process.env.NEXT_PUBLIC_REALTIME_MODEL || "gpt-realtime";
+    opts.model ||
+    process.env.NEXT_PUBLIC_REALTIME_MODEL ||
+    "gpt-4o-realtime-preview";
   const agent = new RealtimeAgent({
     name: "assistant",
-    instructions: SYSTEM_PROMPT,
+    instructions: opts.instructions || "",
   });
 
   const session = new RealtimeSession(agent, {

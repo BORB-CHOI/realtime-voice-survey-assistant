@@ -27,6 +27,7 @@ export default function VoiceSurveyClient() {
   const tokenFetchedAtRef = useRef<number>(0);
   const connectInFlightRef = useRef(false);
   const connectRetryRef = useRef(false);
+  const systemPromptRef = useRef<string | null>(null);
 
   const rtRef = useRef<ReturnType<typeof createRealtimeClient> | null>(null);
 
@@ -35,8 +36,32 @@ export default function VoiceSurveyClient() {
   useEffect(() => {
     let cancelled = false;
     const initRealtime = async () => {
+      let instructions = "";
+      try {
+        const res = await fetch("/api/system-prompt", { cache: "no-store" });
+        if (!res.ok) {
+          const detail = await res.text();
+          throw new Error(`system prompt fetch failed: ${res.status} ${detail}`);
+        }
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          const detail = await res.text();
+          throw new Error(`system prompt invalid response: ${detail}`);
+        }
+        const data = await res.json();
+        if (typeof data?.instructions !== "string") {
+          throw new Error("system prompt missing in response");
+        }
+        instructions = data.instructions;
+        systemPromptRef.current = instructions;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        appendLog(`system prompt error: ${msg}`);
+      }
+
       const rt = createRealtimeClient({
         apiKey: undefined,
+        instructions,
         autoGreetText:
           "[중개사 왈] 지침에 따라 자기소개를 한 번만 하고 바로 첫 설문을 시작하세요.",
         onTranscript: (text, confidence, isFinal, reading, meta) => {

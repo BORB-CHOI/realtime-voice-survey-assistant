@@ -31,7 +31,7 @@ export async function GET() {
   const model =
     process.env.OPENAI_REALTIME_MODEL ||
     process.env.NEXT_PUBLIC_REALTIME_MODEL ||
-    "gpt-realtime";
+    "gpt-4o-realtime-preview";
   const sessionConfig = {
     session: {
       type: "realtime",

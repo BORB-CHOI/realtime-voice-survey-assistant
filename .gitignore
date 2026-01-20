@@ -10,12 +10,12 @@ __pycache__/
 *.log
 
 # Node/Next.js
-web/node_modules/
-web/.next/
-web/.turbo/
-web/.vercel/
-web/.env.local
-web/.env*
+node_modules/
+.next/
+.turbo/
+.vercel/
+.env.local
+.env*
 
 # OS/Editor
 .DS_Store
