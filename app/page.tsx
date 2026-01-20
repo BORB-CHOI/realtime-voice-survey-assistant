@@ -1,5 +1,5 @@
-import VoiceSurveyClient from "../components/VoiceSurveyClient";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <VoiceSurveyClient />;
+  redirect("/gpt-realtime");
 }

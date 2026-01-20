@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createRealtimeClient } from "../lib/realtimeClient";
 
-export default function VoiceSurveyClient() {
+type VoiceSurveyClientProps = {
+  model?: string;
+};
+
+export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
   const [ready, setReady] = useState(false);
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<
@@ -41,7 +45,9 @@ export default function VoiceSurveyClient() {
         const res = await fetch("/api/system-prompt", { cache: "no-store" });
         if (!res.ok) {
           const detail = await res.text();
-          throw new Error(`system prompt fetch failed: ${res.status} ${detail}`);
+          throw new Error(
+            `system prompt fetch failed: ${res.status} ${detail}`,
+          );
         }
         const contentType = res.headers.get("content-type") || "";
         if (!contentType.includes("application/json")) {
@@ -61,6 +67,7 @@ export default function VoiceSurveyClient() {
 
       const rt = createRealtimeClient({
         apiKey: undefined,
+        model,
         instructions,
         autoGreetText:
           "[중개사 왈] 지침에 따라 자기소개를 한 번만 하고 바로 첫 설문을 시작하세요.",
@@ -99,7 +106,10 @@ export default function VoiceSurveyClient() {
 
   const fetchFreshToken = async () => {
     try {
-      const res = await fetch("/api/realtime-token", { cache: "no-store" });
+      const tokenPath = model
+        ? `/api/realtime-token/${encodeURIComponent(model)}`
+        : "/api/realtime-token";
+      const res = await fetch(tokenPath, { cache: "no-store" });
       if (!res.ok) {
         const detail = await res.text();
         throw new Error(`token fetch failed: ${res.status} ${detail}`);
@@ -272,6 +282,38 @@ export default function VoiceSurveyClient() {
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: 24 }}>
       <h1>실시간 음성 설문 (Prototype)</h1>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          margin: "8px 0 16px",
+          fontSize: 13,
+        }}
+      >
+        <span style={{ color: "#475569" }}>모델 바로가기:</span>
+        {[
+          "gpt-realtime",
+          "gpt-realtime-mini",
+          "gpt-4o-realtime-preview",
+          "gpt-4o-mini-realtime-preview",
+        ].map((id) => (
+          <a
+            key={id}
+            href={`/${id}`}
+            style={{
+              padding: "4px 8px",
+              borderRadius: 999,
+              border: id === model ? "1px solid #2563eb" : "1px solid #cbd5f5",
+              background: id === model ? "#dbeafe" : "#f8fafc",
+              color: "#0f172a",
+              textDecoration: "none",
+            }}
+          >
+            {id}
+          </a>
+        ))}
+      </div>
       <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
         <button onClick={onStart} disabled={!ready}>
           세션 시작
@@ -283,8 +325,8 @@ export default function VoiceSurveyClient() {
           {micPermission === "granted"
             ? "허용됨"
             : micPermission === "denied"
-            ? "거부됨"
-            : "대기"}
+              ? "거부됨"
+              : "대기"}
         </span>
         {hearing && (
           <span
