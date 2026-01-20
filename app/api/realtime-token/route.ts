@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const resolveSystemPromptPath = () => {
   const cwd = process.cwd();
   const candidates = [
@@ -24,7 +28,10 @@ export async function GET() {
   if (!apiKey) {
     return NextResponse.json(
       { error: "OPENAI_API_KEY missing" },
-      { status: 500 }
+      {
+        status: 500,
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      },
     );
   }
 
@@ -51,12 +58,15 @@ export async function GET() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(sessionConfig),
-    }
+    },
   );
 
   const data = await response.json();
   if (!response.ok) {
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data, {
+      status: response.status,
+      headers: { "Cache-Control": "no-store, max-age=0" },
+    });
   }
 
   // Normalize possible response shapes.
@@ -67,9 +77,11 @@ export async function GET() {
   if (!data?.value) {
     return NextResponse.json(
       { error: "TOKEN_MISSING", detail: data },
-      { status: 502 }
+      { status: 502, headers: { "Cache-Control": "no-store, max-age=0" } },
     );
   }
 
-  return NextResponse.json(data);
+  return NextResponse.json(data, {
+    headers: { "Cache-Control": "no-store, max-age=0" },
+  });
 }
