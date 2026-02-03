@@ -33,6 +33,7 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
   const connectInFlightRef = useRef(false);
   const connectRetryRef = useRef(false);
   const systemPromptRef = useRef<string | null>(null);
+  const definitionIdRef = useRef<string | null>(null);
   const transcriptRef = useRef<
     { role: "user" | "assistant"; text: string; timestamp: Date }[]
   >([]);
@@ -69,6 +70,9 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
         }
         instructions = data.instructions;
         systemPromptRef.current = instructions;
+        if (typeof data?.definitionId === "string" && data.definitionId) {
+          definitionIdRef.current = data.definitionId;
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         appendLog(`system prompt error: ${msg}`);
@@ -303,6 +307,7 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          definitionId: definitionIdRef.current,
           respondentId: respondentIdRef.current,
           transcript: transcriptRef.current,
         }),

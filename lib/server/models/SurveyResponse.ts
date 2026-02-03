@@ -4,6 +4,13 @@ export type AnswerValue = {
   value: unknown;
   originalText?: string;
   reasoning?: string;
+  confidence?: number;
+  evidence?: string[];
+  hypotheses?: Array<{
+    value: unknown;
+    confidence: number;
+    evidence: string[];
+  }>;
 };
 
 export type SurveyResponseDocument = mongoose.Document & {
@@ -18,6 +25,9 @@ const AnswerValueSchema = new Schema<AnswerValue>(
     value: { type: Schema.Types.Mixed },
     originalText: { type: String },
     reasoning: { type: String },
+    confidence: { type: Number },
+    evidence: { type: [String], default: [] },
+    hypotheses: { type: [Schema.Types.Mixed], default: [] },
   },
   { _id: false },
 );

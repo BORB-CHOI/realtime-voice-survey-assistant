@@ -15,28 +15,27 @@ export type SurveyDefinitionDocument = mongoose.Document & {
   updatedAt: Date;
 };
 
-const SurveyQuestionSchema = new Schema<SurveyQuestion>(
+const SurveyQuestionSchema: Schema = new Schema(
   {
     id: { type: String, required: true },
     text: { type: String, required: true },
     type: { type: String, required: true },
     options: { type: [String], default: [] },
     extractionGuide: { type: String },
-  },
+  } as any,
   { _id: false },
 );
 
-const SurveyDefinitionSchema = new Schema<SurveyDefinitionDocument>(
+const SurveyDefinitionSchema: Schema = new Schema(
   {
     name: { type: String },
     questions: { type: [SurveyQuestionSchema], default: [] },
-  },
+  } as any,
   { timestamps: true },
 );
 
-export const SurveyDefinition =
-  (mongoose.models.SurveyDefinition as mongoose.Model<SurveyDefinitionDocument>) ||
-  mongoose.model<SurveyDefinitionDocument>(
+export const SurveyDefinition = ((mongoose as any).models.SurveyDefinition ||
+  (mongoose as any).model(
     "SurveyDefinition",
     SurveyDefinitionSchema,
-  );
+  )) as unknown as mongoose.Model<SurveyDefinitionDocument>;
