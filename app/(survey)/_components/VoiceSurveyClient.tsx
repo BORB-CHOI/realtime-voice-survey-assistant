@@ -33,6 +33,14 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
   const connectInFlightRef = useRef(false);
   const connectRetryRef = useRef(false);
   const systemPromptRef = useRef<string | null>(null);
+  const transcriptRef = useRef<
+    { role: "user" | "assistant"; text: string; timestamp: Date }[]
+  >([]);
+  const respondentIdRef = useRef(
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `guest-${Date.now()}`,
+  );
 
   const rtRef = useRef<ReturnType<typeof createRealtimeClient> | null>(null);
 
@@ -74,6 +82,11 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
           "[중개사 왈] 지침에 따라 자기소개를 한 번만 하고 바로 첫 설문을 시작하세요.",
         onTranscript: (text, confidence, isFinal, reading, meta) => {
           if (!isFinal) return;
+          transcriptRef.current.push({
+            role: "user",
+            text,
+            timestamp: new Date(),
+          });
           setStatus("processing");
           setLastHeard(text);
           setHearing(true);
@@ -83,6 +96,11 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
         },
         onAssistantText: (text, isFinal, meta) => {
           if (!isFinal || !text) return;
+          transcriptRef.current.push({
+            role: "assistant",
+            text,
+            timestamp: new Date(),
+          });
           setStatus("speaking");
           appendLog(`ai: ${text}`);
           setStatus("listening");
@@ -273,11 +291,26 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
     setStatus("listening");
   };
 
-  const onStop = () => {
+  const onStop = async () => {
     rtRef.current?.stopMic();
     setHearing(false);
     stopMeter();
     setStatus("idle");
+
+    if (!transcriptRef.current.length) return;
+    try {
+      await fetch("/api/survey-submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          respondentId: respondentIdRef.current,
+          transcript: transcriptRef.current,
+        }),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      appendLog(`submit error: ${msg}`);
+    }
   };
 
   return (
