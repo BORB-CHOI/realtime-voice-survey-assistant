@@ -1,4 +1,4 @@
-import VoiceSurveyClient from "../../components/VoiceSurveyClient";
+import VoiceSurveyClient from "@/app/(survey)/_components/VoiceSurveyClient";
 
 type PageProps = {
   params: { model: string };

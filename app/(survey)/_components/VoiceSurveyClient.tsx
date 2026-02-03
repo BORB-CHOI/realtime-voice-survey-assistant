@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createRealtimeClient } from "../lib/realtimeClient";
+import { createRealtimeClient } from "@/lib/client/realtimeClient";
+import { realtimeModels } from "@/types/realtime";
 
 type VoiceSurveyClientProps = {
   model?: string;
@@ -292,12 +293,7 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
         }}
       >
         <span style={{ color: "#475569" }}>모델 바로가기:</span>
-        {[
-          "gpt-realtime",
-          "gpt-realtime-mini",
-          "gpt-4o-realtime-preview",
-          "gpt-4o-mini-realtime-preview",
-        ].map((id) => (
+        {realtimeModels.map((id) => (
           <a
             key={id}
             href={`/${id}`}

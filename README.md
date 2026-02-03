@@ -15,4 +15,4 @@
 - `npm run dev` (http://localhost:3000)
 
 ## System Prompt
-- 에이전트 시스템 프롬프트 원본은 docs/elderly-mobility-system.md에 유지합니다. README에는 포함하지 않습니다.
+- 에이전트 시스템 프롬프트 원본은 prompts/elderly-mobility-system.md에 유지합니다. README에는 포함하지 않습니다.
