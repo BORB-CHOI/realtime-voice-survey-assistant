@@ -320,7 +320,32 @@ export default function VoiceSurveyClient({ model }: VoiceSurveyClientProps) {
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: 24 }}>
-      <h1>실시간 음성 설문 (Prototype)</h1>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <h1 style={{ margin: 0 }}>실시간 음성 설문 (Prototype)</h1>
+        <a
+          href="/admin"
+          style={{
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: "1px solid #cbd5f5",
+            background: "#eef2ff",
+            color: "#1e1b4b",
+            textDecoration: "none",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          관리자 바로가기
+        </a>
+      </div>
       <div
         style={{
           display: "flex",
