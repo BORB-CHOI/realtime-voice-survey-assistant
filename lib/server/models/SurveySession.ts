@@ -14,7 +14,7 @@ export type SurveySessionDocument = mongoose.Document & {
   updatedAt: Date;
 };
 
-const TranscriptItemSchema = new Schema<TranscriptItem>(
+const TranscriptItemSchema = new Schema(
   {
     role: { type: String, enum: ["user", "assistant"], required: true },
     text: { type: String, required: true },
@@ -23,7 +23,7 @@ const TranscriptItemSchema = new Schema<TranscriptItem>(
   { _id: false },
 );
 
-const SurveySessionSchema = new Schema<SurveySessionDocument>(
+const SurveySessionSchema = new Schema(
   {
     definitionId: {
       type: Schema.Types.ObjectId,
@@ -37,5 +37,5 @@ const SurveySessionSchema = new Schema<SurveySessionDocument>(
 );
 
 export const SurveySession =
-  (mongoose.models.SurveySession as mongoose.Model<SurveySessionDocument>) ||
-  mongoose.model<SurveySessionDocument>("SurveySession", SurveySessionSchema);
+  (mongoose.models.SurveySession as any) ||
+  mongoose.model("SurveySession", SurveySessionSchema);
