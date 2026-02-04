@@ -20,7 +20,7 @@ export type SurveyResponseDocument = mongoose.Document & {
   updatedAt: Date;
 };
 
-const AnswerValueSchema = new Schema<AnswerValue>(
+const AnswerValueSchema = new Schema(
   {
     value: { type: Schema.Types.Mixed },
     originalText: { type: String },
@@ -32,14 +32,18 @@ const AnswerValueSchema = new Schema<AnswerValue>(
   { _id: false },
 );
 
-const SurveyResponseSchema = new Schema<SurveyResponseDocument>(
+const SurveyResponseSchema = new Schema(
   {
-    sessionId: { type: Schema.Types.ObjectId, ref: "SurveySession", required: true },
+    sessionId: {
+      type: Schema.Types.ObjectId,
+      ref: "SurveySession",
+      required: true,
+    },
     answers: { type: Map, of: AnswerValueSchema, default: {} },
   },
   { timestamps: true },
 );
 
 export const SurveyResponse =
-  (mongoose.models.SurveyResponse as mongoose.Model<SurveyResponseDocument>) ||
-  mongoose.model<SurveyResponseDocument>("SurveyResponse", SurveyResponseSchema);
+  (mongoose.models.SurveyResponse as any) ||
+  mongoose.model("SurveyResponse", SurveyResponseSchema);
