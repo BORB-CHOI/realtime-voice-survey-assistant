@@ -76,7 +76,7 @@ export default async function AdminPage() {
       </section>
 
       <div style={{ marginTop: 20, display: "grid", gap: 14 }}>
-        {sessions.map((session) => {
+        {sessions.map((session: any) => {
           const response = responseMap.get(String(session._id));
           const createdAt = session.createdAt
             ? new Date(session.createdAt).toLocaleString("ko-KR")
