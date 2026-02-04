@@ -117,6 +117,10 @@ export const submitSurveyResult = async (input: SubmitSurveyInput) => {
     throw new Error("SURVEY_DEFINITION_NOT_FOUND");
   }
 
+  if (!definition.questions || definition.questions.length === 0) {
+    return { session, response: null };
+  }
+
   const prompt = generateSystemPrompt(definition);
   const extraction = await callExtraction(prompt, input.transcript);
   const answers = normalizeAnswers(definition, extraction);
