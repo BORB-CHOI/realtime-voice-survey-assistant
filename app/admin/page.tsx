@@ -9,7 +9,7 @@ export default async function AdminPage() {
   const sessions = await SurveySession.find().sort({ createdAt: -1 }).lean();
   const responses = await SurveyResponse.find().lean();
   const responseMap = new Map(
-    responses.map((item) => [String(item.sessionId), item]),
+    responses.map((item: any) => [String(item.sessionId), item]),
   );
 
   return (
@@ -77,7 +77,9 @@ export default async function AdminPage() {
 
       <div style={{ marginTop: 20, display: "grid", gap: 14 }}>
         {sessions.map((session: any) => {
-          const response = responseMap.get(String(session._id));
+          const response = responseMap.get(String(session._id)) as
+            | { answers?: Record<string, any> }
+            | undefined;
           const createdAt = session.createdAt
             ? new Date(session.createdAt).toLocaleString("ko-KR")
             : "";

@@ -58,7 +58,7 @@ export async function GET() {
   const responses = await SurveyResponse.find().lean();
 
   const responseMap = new Map(
-    responses.map((item) => [String(item.sessionId), item]),
+    responses.map((item: any) => [String(item.sessionId), item]),
   );
 
   const data = sessions.map((session: any) => ({
