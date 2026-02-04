@@ -61,7 +61,7 @@ export async function GET() {
     responses.map((item) => [String(item.sessionId), item]),
   );
 
-  const data = sessions.map((session) => ({
+  const data = sessions.map((session: any) => ({
     session,
     response: responseMap.get(String(session._id)) || null,
   }));
