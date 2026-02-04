@@ -121,7 +121,7 @@ export const submitSurveyResult = async (input: SubmitSurveyInput) => {
     return { session, response: null };
   }
 
-  const prompt = generateSystemPrompt(definition);
+  const prompt = generateSystemPrompt(definition as any);
   const extraction = await callExtraction(prompt, input.transcript);
   const answers = normalizeAnswers(definition, extraction);
 
