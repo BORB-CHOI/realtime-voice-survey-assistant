@@ -13,7 +13,7 @@ export async function GET() {
     if (!latest) {
       return NextResponse.json({ instructions: base, definitionId: null });
     }
-    const addon = buildInterviewAddon(latest);
+    const addon = buildInterviewAddon(latest as any);
     return NextResponse.json({
       instructions: `${base}\n\n${addon}`,
       definitionId: String(latest._id),
