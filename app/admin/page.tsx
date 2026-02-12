@@ -1,6 +1,8 @@
 import { connectMongo } from "@/lib/server/db";
 import { SurveySession } from "@/lib/server/models/SurveySession";
 import { SurveyResponse } from "@/lib/server/models/SurveyResponse";
+import { SurveyDefinition } from "@/lib/server/models/SurveyDefinition";
+import ReextractButton from "./_components/ReextractButton";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +10,12 @@ export default async function AdminPage() {
   await connectMongo();
   const sessions = await SurveySession.find().sort({ createdAt: -1 }).lean();
   const responses = await SurveyResponse.find().lean();
+  const definitions = await SurveyDefinition.find().lean();
   const responseMap = new Map(
     responses.map((item: any) => [String(item.sessionId), item]),
+  );
+  const definitionMap = new Map(
+    definitions.map((item: any) => [String(item._id), item]),
   );
 
   return (
@@ -80,6 +86,9 @@ export default async function AdminPage() {
           const response = responseMap.get(String(session._id)) as
             | { answers?: Record<string, any> }
             | undefined;
+          const definition = definitionMap.get(String(session.definitionId)) as
+            | { questions?: Array<{ id: string; text: string }> }
+            | undefined;
           const createdAt = session.createdAt
             ? new Date(session.createdAt).toLocaleString("ko-KR")
             : "";
@@ -119,6 +128,10 @@ export default async function AdminPage() {
                     flexWrap: "wrap",
                   }}
                 >
+                  <ReextractButton
+                    sessionId={String(session._id)}
+                    disabled={!session.transcript?.length}
+                  />
                   {createdAt && (
                     <span
                       style={{
@@ -176,7 +189,18 @@ export default async function AdminPage() {
                   >
                     {session.transcript.length
                       ? session.transcript
-                          .map((item: any) => `${item.role}: ${item.text}`)
+                          .map((item: any) => {
+                            const qid = item.questionId
+                              ? ` [q:${item.questionId}]`
+                              : "";
+                            const itemId = item.itemId
+                              ? ` [item:${item.itemId}]`
+                              : "";
+                            const para = item.paralinguistic
+                              ? ` [para:${JSON.stringify(item.paralinguistic)}]`
+                              : "";
+                            return `${item.role}${qid}${itemId}${para}: ${item.text}`;
+                          })
                           .join("\n")
                       : "(no transcript)"}
                   </div>
@@ -202,76 +226,88 @@ export default async function AdminPage() {
                         overflow: "auto",
                       }}
                     >
-                      {Object.entries(response.answers).map(
-                        ([key, value]: [string, any]) => {
-                          const v = value?.value;
-                          const originalText = value?.originalText;
-                          const reasoning = value?.reasoning;
-                          const confidence =
-                            typeof value?.confidence === "number"
-                              ? value.confidence
-                              : null;
-                          return (
+                      {(definition?.questions?.length
+                        ? definition.questions.map((q) => [
+                            q.id,
+                            response.answers?.[q.id],
+                          ])
+                        : Object.entries(response.answers)
+                      ).map(([key, value]: [string, any]) => {
+                        const v = value?.value;
+                        const originalText = value?.originalText;
+                        const reasoning = value?.reasoning;
+                        const confidence =
+                          typeof value?.confidence === "number"
+                            ? value.confidence
+                            : null;
+                        const questionText = definition?.questions?.find(
+                          (q) => q.id === key,
+                        )?.text;
+                        return (
+                          <div
+                            key={key}
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 8,
+                              padding: 8,
+                              background: "#ffffff",
+                              display: "grid",
+                              gap: 6,
+                            }}
+                          >
                             <div
-                              key={key}
                               style={{
-                                border: "1px solid #e2e8f0",
-                                borderRadius: 8,
-                                padding: 8,
-                                background: "#ffffff",
-                                display: "grid",
-                                gap: 6,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 8,
+                                flexWrap: "wrap",
                               }}
                             >
-                              <div
+                              <span
                                 style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: 8,
-                                  flexWrap: "wrap",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  color: "#0f172a",
                                 }}
                               >
+                                {key}
+                              </span>
+                              {confidence !== null && (
                                 <span
                                   style={{
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    color: "#0f172a",
+                                    fontSize: 11,
+                                    padding: "2px 8px",
+                                    borderRadius: 999,
+                                    background: "#e0f2fe",
+                                    color: "#0c4a6e",
                                   }}
                                 >
-                                  {key}
+                                  신뢰도 {Math.round(confidence * 100)}%
                                 </span>
-                                {confidence !== null && (
-                                  <span
-                                    style={{
-                                      fontSize: 11,
-                                      padding: "2px 8px",
-                                      borderRadius: 999,
-                                      background: "#e0f2fe",
-                                      color: "#0c4a6e",
-                                    }}
-                                  >
-                                    신뢰도 {Math.round(confidence * 100)}%
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{ fontSize: 12, color: "#334155" }}>
-                                <strong>값</strong>: {String(v ?? "-")}
-                              </div>
-                              {originalText && (
-                                <div style={{ fontSize: 12, color: "#475569" }}>
-                                  <strong>원문</strong>: {originalText}
-                                </div>
-                              )}
-                              {reasoning && (
-                                <div style={{ fontSize: 12, color: "#64748b" }}>
-                                  <strong>근거</strong>: {reasoning}
-                                </div>
                               )}
                             </div>
-                          );
-                        },
-                      )}
+                            {questionText && (
+                              <div style={{ fontSize: 12, color: "#475569" }}>
+                                <strong>질문</strong>: {questionText}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 12, color: "#334155" }}>
+                              <strong>값</strong>: {String(v ?? "-")}
+                            </div>
+                            {originalText && (
+                              <div style={{ fontSize: 12, color: "#475569" }}>
+                                <strong>원문</strong>: {originalText}
+                              </div>
+                            )}
+                            {reasoning && (
+                              <div style={{ fontSize: 12, color: "#64748b" }}>
+                                <strong>근거</strong>: {reasoning}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div
