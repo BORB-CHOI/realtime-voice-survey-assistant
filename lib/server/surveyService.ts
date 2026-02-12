@@ -132,3 +132,37 @@ export const submitSurveyResult = async (input: SubmitSurveyInput) => {
 
   return { session, response };
 };
+
+export const reextractSurveyResult = async (input: { sessionId: string }) => {
+  await connectMongo();
+
+  const session = await SurveySession.findById(input.sessionId);
+  if (!session) {
+    throw new Error("SESSION_NOT_FOUND");
+  }
+
+  if (!Array.isArray(session.transcript) || session.transcript.length === 0) {
+    throw new Error("TRANSCRIPT_REQUIRED");
+  }
+
+  const definition = await SurveyDefinition.findById(session.definitionId);
+  if (!definition) {
+    throw new Error("SURVEY_DEFINITION_NOT_FOUND");
+  }
+
+  if (!definition.questions || definition.questions.length === 0) {
+    return { session, response: null };
+  }
+
+  const prompt = generateSystemPrompt(definition as any);
+  const extraction = await callExtraction(prompt, session.transcript as any);
+  const answers = normalizeAnswers(definition, extraction);
+
+  const response = await SurveyResponse.findOneAndUpdate(
+    { sessionId: session._id },
+    { answers },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+
+  return { session, response };
+};
