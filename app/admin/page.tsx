@@ -226,13 +226,16 @@ export default async function AdminPage() {
                         overflow: "auto",
                       }}
                     >
-                      {(definition?.questions?.length
-                        ? definition.questions.map((q) => [
-                            q.id,
-                            response.answers?.[q.id],
-                          ])
-                        : Object.entries(response.answers)
-                      ).map(([key, value]: [string, any]) => {
+                      {(
+                        definition?.questions?.length
+                          ? (definition.questions.map((q) => [
+                              q.id,
+                              response.answers?.[q.id],
+                            ]) as Array<[string, any]>)
+                          : (Object.entries(
+                              response.answers,
+                            ) as Array<[string, any]>)
+                      ).map(([key, value]) => {
                         const v = value?.value;
                         const originalText = value?.originalText;
                         const reasoning = value?.reasoning;
