@@ -18,7 +18,49 @@ import {
   WidthType,
   ShadingType,
   ImageRun,
+  Header,
+  Footer,
+  PageNumber,
+  NumberFormat,
+  convertInchesToTwip,
+  UnderlineType,
 } from "docx";
+
+// ─────────────────────────────────────────────
+// ITS 정책보고서 스타일 상수
+// (docs/report-style-guide.json 분석 결과 기반)
+// ─────────────────────────────────────────────
+const ITS = {
+  font: "바탕",           // 정부보고서 기본 폰트
+  fontSans: "맑은 고딕",  // 제목/표 헤더용
+  size: {
+    title:    48,  // 24pt
+    h1:       36,  // 18pt
+    h2:       32,  // 16pt
+    h3:       28,  // 14pt
+    body:     24,  // 12pt
+    small:    20,  // 10pt
+    footer:   18,  // 9pt
+  },
+  color: {
+    black:    "000000",
+    gray:     "595959",
+    lightGray:"808080",
+    border:   "AAAAAA",
+    tableHdr: "F2F2F2",
+    white:    "FFFFFF",
+  },
+  // 여백 (twip 단위, 1인치 = 1440 twip)
+  margin: {
+    top:    convertInchesToTwip(1.0),
+    bottom: convertInchesToTwip(1.0),
+    left:   convertInchesToTwip(1.2),
+    right:  convertInchesToTwip(1.0),
+    header: convertInchesToTwip(0.5),
+    footer: convertInchesToTwip(0.5),
+  },
+  lineSpacing: 360, // 1.5줄 간격
+} as const;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
@@ -328,300 +370,412 @@ keyFindings는 3-5개, recommendations는 3-5개로 작성하세요.
 }
 
 // ─────────────────────────────────────────────
-// DOCX 파일 생성
+// ITS 스타일 헬퍼: H1 제목 위 구분선 포함 단락
+// ─────────────────────────────────────────────
+function itsH1(text: string, index: number): Paragraph[] {
+  return [
+    // 구분선 (제목 위)
+    new Paragraph({
+      text: "",
+      border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: ITS.color.black } },
+      spacing: { before: 480, after: 0 },
+    }),
+    // 제목
+    new Paragraph({
+      spacing: { before: 120, after: 200 },
+      children: [
+        new TextRun({
+          text: `제${["Ⅰ","Ⅱ","Ⅲ","Ⅳ","Ⅴ","Ⅵ","Ⅶ","Ⅷ"][index] ?? (index+1)+"."}. ${text}`,
+          bold: true,
+          font: ITS.fontSans,
+          size: ITS.size.h1,
+          color: ITS.color.black,
+        }),
+      ],
+    }),
+  ];
+}
+
+function itsH2(text: string, idx1: number, idx2: number): Paragraph {
+  return new Paragraph({
+    spacing: { before: 320, after: 160 },
+    children: [
+      new TextRun({
+        text: `${idx1+1}.${idx2+1} ${text}`,
+        bold: true,
+        font: ITS.fontSans,
+        size: ITS.size.h2,
+        color: ITS.color.black,
+      }),
+    ],
+  });
+}
+
+function itsBody(text: string): Paragraph {
+  return new Paragraph({
+    spacing: { after: 180, line: ITS.lineSpacing },
+    indent: { firstLine: convertInchesToTwip(0.2) },
+    children: [
+      new TextRun({
+        text,
+        font: ITS.font,
+        size: ITS.size.body,
+        color: ITS.color.black,
+      }),
+    ],
+  });
+}
+
+function itsBullet(text: string, symbol = "○"): Paragraph {
+  return new Paragraph({
+    spacing: { after: 100, line: ITS.lineSpacing },
+    indent: { left: convertInchesToTwip(0.3), hanging: convertInchesToTwip(0.2) },
+    children: [
+      new TextRun({ text: `${symbol} `, font: ITS.fontSans, size: ITS.size.body, color: ITS.color.black }),
+      new TextRun({ text, font: ITS.font, size: ITS.size.body, color: ITS.color.black }),
+    ],
+  });
+}
+
+// ─────────────────────────────────────────────
+// DOCX 파일 생성 (ITS 정책보고서 스타일)
 // ─────────────────────────────────────────────
 export async function generateDocx(report: PolicyReport): Promise<Buffer> {
-  const children: any[] = [];
+  const bodyChildren: any[] = [];
 
   // ── 자산(차트 + AI 이미지) 로드 (캐시 우선) ──────
   const { chartImage, aiImage } = await getDocxAssets(report);
 
-  // ── AI 이미지 (표지 상단) ─────────────────────
-  if (aiImage) {
-    children.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 160, after: 200 },
-        children: [
-          new ImageRun({
-            data: aiImage,
-            transformation: { width: 560, height: 320 },
-            type: "png",
-          }),
-        ],
-      }),
-    );
-  }
+  // ══════════════════════════════════════════════
+  // 표지 페이지
+  // ══════════════════════════════════════════════
+  const coverChildren: any[] = [
+    // 상단 여백
+    new Paragraph({ text: "", spacing: { before: convertInchesToTwip(1.5) } }),
 
-  // ── 표지 ──────────────────────────────────────
-  children.push(
+    // AI 생성 커버 이미지
+    ...(aiImage
+      ? [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 400 },
+            children: [
+              new ImageRun({
+                data: aiImage,
+                transformation: { width: 480, height: 270 },
+                type: "png",
+              }),
+            ],
+          }),
+        ]
+      : [new Paragraph({ text: "", spacing: { before: convertInchesToTwip(1.0) } })]),
+
+    // 제목 위 구분선
     new Paragraph({
-      text: report.title,
-      heading: HeadingLevel.TITLE,
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 200, after: 200 },
+      text: "",
+      border: { bottom: { style: BorderStyle.SINGLE, size: 24, color: ITS.color.black } },
+      spacing: { before: 0, after: 200 },
     }),
-  );
-  children.push(
+
+    // 보고서 제목
     new Paragraph({
-      text: report.subtitle,
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 200, after: 160 },
+      children: [
+        new TextRun({
+          text: report.title,
+          bold: true,
+          font: ITS.fontSans,
+          size: ITS.size.title,
+          color: ITS.color.black,
+        }),
+      ],
+    }),
+
+    // 부제목
+    new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 120 },
       children: [
         new TextRun({
           text: report.subtitle,
-          color: "475569",
-          size: 24,
+          font: ITS.fontSans,
+          size: ITS.size.h2,
+          color: ITS.color.gray,
         }),
       ],
     }),
-  );
-  children.push(
+
+    // 제목 아래 구분선
     new Paragraph({
-      text: report.date,
+      text: "",
+      border: { bottom: { style: BorderStyle.SINGLE, size: 24, color: ITS.color.black } },
+      spacing: { before: 200, after: 0 },
+    }),
+
+    // 하단 여백 후 날짜·기관
+    new Paragraph({ text: "", spacing: { before: convertInchesToTwip(1.0) } }),
+    new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 480 },
+      spacing: { after: 80 },
       children: [
         new TextRun({
           text: report.date,
-          color: "64748b",
-          size: 22,
+          font: ITS.fontSans,
+          size: ITS.size.h3,
+          color: ITS.color.gray,
         }),
       ],
     }),
-  );
-
-  // ── 구분선 ────────────────────────────────────
-  children.push(
     new Paragraph({
-      text: "",
-      border: {
-        bottom: { style: BorderStyle.SINGLE, size: 2, color: "e2e8f0" },
-      },
-      spacing: { after: 360 },
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({
+          text: "스마트 모빌리티 정책연구소",
+          font: ITS.fontSans,
+          size: ITS.size.h3,
+          color: ITS.color.gray,
+        }),
+      ],
     }),
-  );
+  ];
 
-  // ── 요약문 ────────────────────────────────────
+  // ══════════════════════════════════════════════
+  // 요약 (본문 첫 섹션)
+  // ══════════════════════════════════════════════
   if (report.executiveSummary) {
-    children.push(
-      new Paragraph({
-        text: "요 약",
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 240, after: 160 },
-      }),
-    );
-    children.push(
-      new Paragraph({
-        text: report.executiveSummary,
-        spacing: { after: 320 },
-        children: [
-          new TextRun({
-            text: report.executiveSummary,
-            size: 22,
-          }),
-        ],
-      }),
-    );
+    bodyChildren.push(...itsH1("요     약", 0));
+    bodyChildren.push(itsBody(report.executiveSummary));
   }
 
-  // ── 본문 섹션 ─────────────────────────────────
-  for (const section of report.sections) {
-    children.push(
-      new Paragraph({
-        text: section.title,
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 320, after: 160 },
-      }),
-    );
-    children.push(
-      new Paragraph({
-        text: section.content,
-        spacing: { after: 240 },
-        children: [
-          new TextRun({
-            text: section.content,
-            size: 22,
-          }),
-        ],
-      }),
-    );
-  }
+  // ══════════════════════════════════════════════
+  // 본문 섹션 (조사개요 / 현황분석 / 문제점 / 개선수요)
+  // ══════════════════════════════════════════════
+  report.sections.forEach((section, si) => {
+    bodyChildren.push(...itsH1(section.title, si + 1));
+    // 내용을 줄바꿈 기준으로 나눠 단락 처리
+    section.content.split("\n").filter(Boolean).forEach((line) => {
+      bodyChildren.push(itsBody(line));
+    });
+  });
 
-  // ── 설문 결과 차트 ───────────────────────────
+  // ══════════════════════════════════════════════
+  // 설문 결과 시각화 차트
+  // ══════════════════════════════════════════════
   if (chartImage) {
-    children.push(
-      new Paragraph({
-        text: "설문 결과 시각화",
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 320, after: 160 },
-      }),
-    );
-    children.push(
+    bodyChildren.push(...itsH1("설문 결과 시각화", report.sections.length + 1));
+    bodyChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 320 },
+        spacing: { before: 160, after: 320 },
         children: [
           new ImageRun({
             data: chartImage,
-            transformation: { width: 540, height: 290 },
+            transformation: { width: 500, height: 270 },
             type: "png",
           }),
         ],
       }),
     );
-  }
-
-  // ── 핵심 발견 ─────────────────────────────────
-  if (report.keyFindings.length > 0) {
-    children.push(
+    // 차트 캡션
+    bodyChildren.push(
       new Paragraph({
-        text: "핵심 발견사항",
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 320, after: 160 },
-      }),
-    );
-    for (let i = 0; i < report.keyFindings.length; i++) {
-      children.push(
-        new Paragraph({
-          spacing: { after: 120 },
-          children: [
-            new TextRun({
-              text: `${i + 1}. ${report.keyFindings[i]}`,
-              size: 22,
-            }),
-          ],
-        }),
-      );
-    }
-  }
-
-  // ── 정책 제언 ─────────────────────────────────
-  if (report.recommendations.length > 0) {
-    children.push(
-      new Paragraph({
-        text: "정책 제언",
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 320, after: 160 },
-      }),
-    );
-
-    const tableRows = report.recommendations.map((rec, i) =>
-      new TableRow({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 240 },
         children: [
-          new TableCell({
-            width: { size: 800, type: WidthType.DXA },
-            shading: { type: ShadingType.SOLID, color: "f1f5f9", fill: "f1f5f9" },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: `제언 ${i + 1}`,
-                    bold: true,
-                    size: 20,
-                    color: "334155",
-                  }),
-                ],
-              }),
-            ],
-          }),
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [new TextRun({ text: rec, size: 20 })],
-              }),
-            ],
+          new TextRun({
+            text: "[그림 1] 설문 응답 결과 분포",
+            font: ITS.fontSans,
+            size: ITS.size.small,
+            color: ITS.color.lightGray,
           }),
         ],
       }),
     );
-
-    children.push(
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: tableRows,
-      }),
-    );
   }
 
-  // ── 원본 응답 데이터 ──────────────────────────
-  if (Object.keys(report.rawAnswers).length > 0) {
-    children.push(
-      new Paragraph({
-        text: "부록: 추출된 응답 데이터",
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 480, after: 160 },
-      }),
-    );
+  // ══════════════════════════════════════════════
+  // 핵심 발견사항
+  // ══════════════════════════════════════════════
+  if (report.keyFindings.length > 0) {
+    const findIdx = report.sections.length + (chartImage ? 2 : 1);
+    bodyChildren.push(...itsH1("핵심 발견사항", findIdx));
+    report.keyFindings.forEach((f, i) => {
+      bodyChildren.push(itsBullet(`${f}`, ["○","○","○","○","○"][i % 5]));
+    });
+  }
 
-    const headerRow = new TableRow({
+  // ══════════════════════════════════════════════
+  // 정책 제언
+  // ══════════════════════════════════════════════
+  if (report.recommendations.length > 0) {
+    const recIdx = report.sections.length + (chartImage ? 3 : 2);
+    bodyChildren.push(...itsH1("정책 제언", recIdx));
+
+    const recHeaderRow = new TableRow({
       children: [
         new TableCell({
-          shading: { type: ShadingType.SOLID, color: "0f172a", fill: "0f172a" },
+          width: { size: 1200, type: WidthType.DXA },
+          shading: { type: ShadingType.SOLID, color: ITS.color.tableHdr, fill: ITS.color.tableHdr },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            bottom: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+          },
           children: [
             new Paragraph({
-              children: [
-                new TextRun({ text: "문항 ID", bold: true, color: "ffffff", size: 20 }),
-              ],
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: "구분", bold: true, font: ITS.fontSans, size: ITS.size.small, color: ITS.color.black })],
             }),
           ],
         }),
         new TableCell({
-          shading: { type: ShadingType.SOLID, color: "0f172a", fill: "0f172a" },
+          shading: { type: ShadingType.SOLID, color: ITS.color.tableHdr, fill: ITS.color.tableHdr },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            bottom: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+          },
           children: [
             new Paragraph({
-              children: [
-                new TextRun({ text: "응답 값", bold: true, color: "ffffff", size: 20 }),
-              ],
-            }),
-          ],
-        }),
-        new TableCell({
-          shading: { type: ShadingType.SOLID, color: "0f172a", fill: "0f172a" },
-          children: [
-            new Paragraph({
-              children: [
-                new TextRun({ text: "신뢰도", bold: true, color: "ffffff", size: 20 }),
-              ],
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: "정책 제언 내용", bold: true, font: ITS.fontSans, size: ITS.size.small, color: ITS.color.black })],
             }),
           ],
         }),
       ],
     });
 
-    const dataRows = Object.entries(report.rawAnswers).map(([key, val]: [string, any]) =>
+    const recDataRows = report.recommendations.map((rec, i) =>
       new TableRow({
         children: [
           new TableCell({
+            width: { size: 1200, type: WidthType.DXA },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              bottom: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+              right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            },
             children: [
               new Paragraph({
-                children: [new TextRun({ text: key, size: 18, bold: true })],
-              }),
-            ],
-          }),
-          new TableCell({
-            children: [
-              new Paragraph({
+                alignment: AlignmentType.CENTER,
                 children: [
-                  new TextRun({
-                    text: String(val?.value ?? "-"),
-                    size: 18,
-                  }),
+                  new TextRun({ text: `제언 ${i + 1}`, bold: true, font: ITS.fontSans, size: ITS.size.small, color: ITS.color.black }),
                 ],
               }),
             ],
           }),
           new TableCell({
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              bottom: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+              right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            },
             children: [
               new Paragraph({
+                spacing: { line: ITS.lineSpacing },
+                children: [new TextRun({ text: rec, font: ITS.font, size: ITS.size.body, color: ITS.color.black })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    bodyChildren.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [recHeaderRow, ...recDataRows],
+      }),
+    );
+  }
+
+  // ══════════════════════════════════════════════
+  // 부록: 원본 응답 데이터
+  // ══════════════════════════════════════════════
+  if (Object.keys(report.rawAnswers).length > 0) {
+    bodyChildren.push(
+      new Paragraph({ text: "", spacing: { before: convertInchesToTwip(0.3) } }),
+    );
+    bodyChildren.push(
+      new Paragraph({
+        border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: ITS.color.black } },
+        spacing: { before: 480, after: 160 },
+        children: [
+          new TextRun({
+            text: "부록: 추출된 응답 원자료",
+            bold: true,
+            font: ITS.fontSans,
+            size: ITS.size.h2,
+            color: ITS.color.black,
+          }),
+        ],
+      }),
+    );
+
+    const rawHeader = new TableRow({
+      children: ["문항 ID", "응답 값", "신뢰도"].map((label) =>
+        new TableCell({
+          shading: { type: ShadingType.SOLID, color: ITS.color.tableHdr, fill: ITS.color.tableHdr },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            bottom: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+          },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: label, bold: true, font: ITS.fontSans, size: ITS.size.small, color: ITS.color.black })],
+            }),
+          ],
+        }),
+      ),
+    });
+
+    const rawRows = Object.entries(report.rawAnswers).map(([key, val]: [string, any]) =>
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 2000, type: WidthType.DXA },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              bottom: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+              right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            },
+            children: [new Paragraph({ children: [new TextRun({ text: key, bold: true, font: ITS.fontSans, size: ITS.size.footer, color: ITS.color.black })] })],
+          }),
+          new TableCell({
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              bottom: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+              right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            },
+            children: [new Paragraph({ children: [new TextRun({ text: String(val?.value ?? "-"), font: ITS.font, size: ITS.size.footer, color: ITS.color.black })] })],
+          }),
+          new TableCell({
+            width: { size: 800, type: WidthType.DXA },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              bottom: { style: BorderStyle.SINGLE, size: 2, color: ITS.color.border },
+              left: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+              right: { style: BorderStyle.SINGLE, size: 4, color: ITS.color.border },
+            },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text:
-                      typeof val?.confidence === "number"
-                        ? `${Math.round(val.confidence * 100)}%`
-                        : "-",
-                    size: 18,
+                    text: typeof val?.confidence === "number" ? `${Math.round(val.confidence * 100)}%` : "-",
+                    font: ITS.fontSans,
+                    size: ITS.size.footer,
+                    color: ITS.color.black,
                   }),
                 ],
               }),
@@ -631,27 +785,71 @@ export async function generateDocx(report: PolicyReport): Promise<Buffer> {
       }),
     );
 
-    children.push(
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: [headerRow, ...dataRows],
-      }),
-    );
+    bodyChildren.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [rawHeader, ...rawRows] }));
   }
 
+  // ══════════════════════════════════════════════
+  // Document 조립 (표지 섹션 + 본문 섹션 분리)
+  // ══════════════════════════════════════════════
   const doc = new Document({
-    sections: [{ children }],
+    numbering: { config: [] },
+    sections: [
+      // ── 표지 섹션 (페이지 번호 없음) ──
+      {
+        properties: {
+          page: {
+            margin: {
+              top: ITS.margin.top,
+              bottom: ITS.margin.bottom,
+              left: ITS.margin.left,
+              right: ITS.margin.right,
+              header: ITS.margin.header,
+              footer: ITS.margin.footer,
+            },
+          },
+        },
+        children: coverChildren,
+      },
+      // ── 본문 섹션 (푸터 페이지 번호) ──
+      {
+        properties: {
+          page: {
+            margin: {
+              top: ITS.margin.top,
+              bottom: ITS.margin.bottom,
+              left: ITS.margin.left,
+              right: ITS.margin.right,
+              header: ITS.margin.header,
+              footer: ITS.margin.footer,
+            },
+            pageNumbers: { start: 1, formatType: NumberFormat.DECIMAL },
+          },
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    children: [PageNumber.CURRENT],
+                    font: ITS.fontSans,
+                    size: ITS.size.footer,
+                    color: ITS.color.lightGray,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        },
+        children: bodyChildren,
+      },
+    ],
     styles: {
       default: {
         document: {
-          run: {
-            font: "맑은 고딕",
-            size: 22,
-            color: "0f172a",
-          },
-          paragraph: {
-            spacing: { line: 360 },
-          },
+          run: { font: ITS.font, size: ITS.size.body, color: ITS.color.black },
+          paragraph: { spacing: { line: ITS.lineSpacing } },
         },
       },
     },

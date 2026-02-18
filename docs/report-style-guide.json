@@ -1,0 +1,257 @@
+{
+  "source_pdf": "기본+RR-15-08_최종.pdf",
+  "analyzed_pages": [
+    "1",
+    "2",
+    "3",
+    "8",
+    "16",
+    "23",
+    "30"
+  ],
+  "page_analyses": {
+    "1": {
+      "page_type": "표지",
+      "layout": {
+        "margins": "넓음",
+        "columns": "1단",
+        "header_footer": "푸터에 기관 로고 및 이름 존재"
+      },
+      "typography": {
+        "title_font": "굵고 큰 크기의 검정색 폰트",
+        "body_font": "보통 크기의 검정색 폰트",
+        "heading_levels": "제목은 중앙에 위치"
+      },
+      "colors": {
+        "primary": "검정",
+        "secondary": "없음",
+        "accent": "없음",
+        "background": "흰색"
+      },
+      "elements": {
+        "has_table": false,
+        "has_chart": false,
+        "has_image": false,
+        "has_sidebar": false,
+        "has_divider": true,
+        "special_elements": "푸터에 로고 및 텍스트"
+      },
+      "section_structure": "제목, 부제목, 저자명, 로고",
+      "design_notes": "공식적이고 깔끔한 정부보고서 스타일"
+    },
+    "2": {
+      "page_type": "표지",
+      "layout": {
+        "margins": "넓은 여백, 비대칭 없음",
+        "columns": "1단",
+        "header_footer": "헤더 없음, 푸터 없음"
+      },
+      "typography": {
+        "title_font": "굵은 폰트 스타일, 큰 크기, 검정색",
+        "body_font": "본문 없음",
+        "heading_levels": "제목만 존재, H1 스타일"
+      },
+      "colors": {
+        "primary": "검정색",
+        "secondary": "없음",
+        "accent": "없음",
+        "background": "흰색"
+      },
+      "elements": {
+        "has_table": false,
+        "has_chart": false,
+        "has_image": false,
+        "has_sidebar": false,
+        "has_divider": false,
+        "special_elements": "없음"
+      },
+      "section_structure": "표지 페이지로 섹션 구성 없음",
+      "design_notes": "매우 간단한 정부보고서 스타일의 표지 디자인"
+    },
+    "3": {
+      "page_type": "본문",
+      "layout": {
+        "margins": "보통",
+        "columns": "1단",
+        "header_footer": "푸터에 페이지 번호 있음"
+      },
+      "typography": {
+        "title_font": "굵고 중간 크기, 검정색",
+        "body_font": "기본 스타일, 중간 크기",
+        "heading_levels": "H1 스타일은 굵고 위에 구분선 있음"
+      },
+      "colors": {
+        "primary": "검정색",
+        "secondary": "회색",
+        "accent": "없음",
+        "background": "흰색"
+      },
+      "elements": {
+        "has_table": false,
+        "has_chart": false,
+        "has_image": false,
+        "has_sidebar": false,
+        "has_divider": true,
+        "special_elements": "제목 아래의 구분선"
+      },
+      "section_structure": "서문 섹션",
+      "design_notes": "정부보고서 스타일"
+    },
+    "8": {
+      "page_type": "목차",
+      "layout": {
+        "margins": "보통, 비대칭 없음",
+        "columns": "1단",
+        "header_footer": "푸터에 페이지 번호 또는 간단한 정보 있음"
+      },
+      "typography": {
+        "title_font": "굵고 큰 폰트, 검정색",
+        "body_font": "표준 폰트 스타일, 검정색",
+        "heading_levels": "굴게 처리된 큰 글자 H1 스타일, 서브 섹션은 일반 텍스트로 표현"
+      },
+      "colors": {
+        "primary": "검정색",
+        "secondary": "없음",
+        "accent": "없음",
+        "background": "흰색"
+      },
+      "elements": {
+        "has_table": false,
+        "has_chart": false,
+        "has_image": false,
+        "has_sidebar": false,
+        "has_divider": true,
+        "special_elements": "점선으로 된 페이지 번호 구분선"
+      },
+      "section_structure": "장과 절로 구분, 각 항목에 페이지 번호 표시",
+      "design_notes": "기본적이고 깔끔한 보고서 목차 스타일"
+    },
+    "16": {
+      "page_type": "본문",
+      "layout": {
+        "margins": "보통, 대칭",
+        "columns": "1단",
+        "header_footer": "푸터에 페이지 번호(xvi) 있음"
+      },
+      "typography": {
+        "title_font": "굵은 폰트, 제목 크기는 본문보다 큼, 검은색",
+        "body_font": "일반 가독성 좋은 본문 폰트",
+        "heading_levels": "H2: 2. 국의 ITS 동향조사 및 시사점 도출, H3: 가. 국의 ITS 동향"
+      },
+      "colors": {
+        "primary": "검은색",
+        "secondary": "없음",
+        "accent": "없음",
+        "background": "흰색"
+      },
+      "elements": {
+        "has_table": false,
+        "has_chart": false,
+        "has_image": false,
+        "has_sidebar": false,
+        "has_divider": false,
+        "special_elements": "없음"
+      },
+      "section_structure": "주제에 따라 구분된 두 섹션: 국의 ITS 동향, 세계 ITS 시장 및 산업 동향",
+      "design_notes": "정부보고서 스타일, 실용적인 정보 전달에 중점"
+    },
+    "23": {
+      "page_type": "본문",
+      "layout": {
+        "margins": "보통",
+        "columns": "1단",
+        "header_footer": "페이지 오른쪽에 페이지 번호와 요약/xxiii 표시"
+      },
+      "typography": {
+        "title_font": "굵은 폰트, 대략 16~18pt, 검정색",
+        "body_font": "일반 폰트, 대략 10~12pt, 검정색",
+        "heading_levels": "제목 레벨: H1 - 4단계 제목 (굵게)"
+      },
+      "colors": {
+        "primary": "검정색",
+        "secondary": "없음",
+        "accent": "없음",
+        "background": "흰색"
+      },
+      "elements": {
+        "has_table": false,
+        "has_chart": false,
+        "has_image": false,
+        "has_sidebar": false,
+        "has_divider": false,
+        "special_elements": "글머리 기호 사용"
+      },
+      "section_structure": "주제별로 구분된 문단",
+      "design_notes": "전형적인 텍스트 중심의 정부 보고서 스타일"
+    },
+    "30": {
+      "page_type": "본문",
+      "layout": {
+        "margins": "보통",
+        "columns": "1단",
+        "header_footer": "페이지 상단에 페이지 번호(xxx) 있음, 푸터 없음"
+      },
+      "typography": {
+        "title_font": "해당 없음",
+        "body_font": "일반적인 본문 폰트 스타일, 보통 크기, 검정색",
+        "heading_levels": "본문 중 소제목은 굵은체로 표시"
+      },
+      "colors": {
+        "primary": "검정색",
+        "secondary": "해당 없음",
+        "accent": "해당 없음",
+        "background": "흰색"
+      },
+      "elements": {
+        "has_table": false,
+        "has_chart": false,
+        "has_image": false,
+        "has_sidebar": false,
+        "has_divider": false,
+        "special_elements": "소제목 앞에 원형 기호 사용"
+      },
+      "section_structure": "단락들로 구성된 본문 텍스트, 소제목 포함",
+      "design_notes": "전형적인 정부 또는 정책 보고서 스타일, 간결하고 명확한 전달을 위한 디자인"
+    }
+  },
+  "style_guide": {
+    "report_title": "ITS 정책보고서",
+    "overall_style": "공식적이고 깔끔한 정부보고서 스타일",
+    "cover_page": {
+      "structure": "제목, 부제목, 저자명, 기관 로고가 중앙에 배치된 표지",
+      "key_elements": [
+        "푸터에 로고 및 기관 이름",
+        "굵고 큰 제목"
+      ]
+    },
+    "toc_page": {
+      "structure": "장 및 절로 구분된 항목 목록, 점선으로 페이지 번호 구분"
+    },
+    "body_page": {
+      "layout": "1단 구성, 보통 여백, 푸터에 페이지 번호 있음",
+      "section_numbering": "장, 절, 소절 (2. / 2.1 / 가. 등)",
+      "paragraph_style": "구분선을 포함한 단락, 소제목에 굵은 텍스트 사용"
+    },
+    "colors": {
+      "primary": "#000000",
+      "secondary": "#808080",
+      "accent": "없음",
+      "header_bg": "흰색",
+      "table_header_bg": "흰색"
+    },
+    "typography": {
+      "title_size_pt": 24,
+      "h1_size_pt": 18,
+      "h2_size_pt": 16,
+      "body_size_pt": 12,
+      "font_family": "Noto Sans KR 또는 유사 폰트",
+      "line_spacing": "보통 (1.5 줄 간격)"
+    },
+    "recurring_elements": [
+      "푸터 로고 및 기관 이름",
+      "페이지 번호",
+      "장과 절 구분선"
+    ],
+    "docx_implementation_notes": "굵은 텍스트 및 구분선 스타일을 문서 표식으로 관리하고, 정렬 및 간격을 일관되게 유지해야 합니다. 페이지 번호 및 푸터 표시가 모든 페이지에 일관되게 적용되도록 주의하세요."
+  }
+}
