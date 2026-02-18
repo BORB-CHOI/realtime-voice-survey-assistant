@@ -3,6 +3,7 @@ import { SurveySession } from "@/lib/server/models/SurveySession";
 import { SurveyResponse } from "@/lib/server/models/SurveyResponse";
 import { SurveyDefinition } from "@/lib/server/models/SurveyDefinition";
 import ReextractButton from "./_components/ReextractButton";
+import { ReportButton } from "./_components/ReportButton";
 
 export const dynamic = "force-dynamic";
 
@@ -157,6 +158,11 @@ export default async function AdminPage() {
                     {response ? "추출 완료" : "추출 없음"}
                   </span>
                 </div>
+              </div>
+
+              {/* 보고서 생성 버튼 */}
+              <div style={{ marginTop: 12 }}>
+                <ReportButton sessionId={String(session._id)} />
               </div>
 
               <div
